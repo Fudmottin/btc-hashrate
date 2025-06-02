@@ -11,10 +11,8 @@
 #include <cstdio>
 #include <iomanip>
 #include <boost/json.hpp>
-#include <boost/multiprecision/cpp_int.hpp>
 
 namespace json = boost::json;
-namespace mp = boost::multiprecision;
 
 constexpr int blocks_per_day = 144;     // Average number of blocks mined per day on Bitcoin
 
@@ -51,19 +49,6 @@ std::string get_block_header(const std::string& hash) {
     std::ostringstream cmd;
     cmd << "bitcoin-cli getblockheader " << hash;
     return run_command(cmd.str());
-}
-
-// Converts the compact representation of difficulty bits to a human-readable difficulty value
-// Uses full 256-bit arithmetic to avoid precision loss
-// Formula: difficulty = difficulty_1_target / current_target
-// difficulty_1_target = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
-// current_target = mantissa * 2^(8*(exponent - 3))
-double bits_to_difficulty(uint32_t bits) {
-    int exponent = bits >> 24;
-    uint32_t mantissa = bits & 0xFFFFFF;
-    mp::uint256_t current_target = mp::uint256_t(mantissa) << (8 * (exponent - 3));
-    mp::uint256_t difficulty_1_target = (mp::uint256_t(0xFFFF) << 208);
-    return current_target == 0 ? 0.0 : difficulty_1_target.convert_to<double>() / current_target.convert_to<double>();
 }
 
 // Converts seconds to a natural d:h:m:s formatted string

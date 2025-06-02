@@ -14,7 +14,7 @@ It uses `bitcoin-cli` to gather block header data and calculates hashrate based 
 
 * `bitcoin-cli` (must be in `$PATH` and connected to a full node)
 * C++20 compiler (Clang/GCC)
-* Boost libraries (JSON and Multiprecision)
+* Boost libraries (JSON)
 
 ## Build
 
