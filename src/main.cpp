@@ -16,7 +16,7 @@
 namespace json = boost::json;
 namespace mp = boost::multiprecision;
 
-constexpr int blocks_per_day = 144; // Average number of blocks mined per day on Bitcoin
+constexpr int blocks_per_day = 144;     // Average number of blocks mined per day on Bitcoin
 
 // Runs a shell command and captures its output
 std::string run_command(const std::string& cmd) {
@@ -103,6 +103,20 @@ std::string format_hashrate(double hps) {
     return oss.str();
 }
 
+// Converts a numerical value to type double
+double to_double(const json::value& val) {
+    switch (val.kind()) {
+        case json::kind::int64:
+            return static_cast<double>(val.as_int64());
+        case json::kind::uint64:
+            return static_cast<double>(val.as_uint64());
+        case json::kind::double_:
+            return val.as_double();
+        default:
+            throw std::runtime_error("Expected numeric JSON value");
+    }
+}
+
 int main(int argc, char** argv) {
     double days = 1.0; // Default to 1 day if no argument is provided
 
@@ -130,25 +144,27 @@ int main(int argc, char** argv) {
     // Get current block header and extract mediantime
     auto head_hash = get_block_hash(current_height);
     auto head_header = parse_json(get_block_header(head_hash));
-    int head_time = head_header["mediantime"].as_int64();
+    int32_t head_time = head_header["mediantime"].as_int64();
 
     // Get past block header and extract mediantime
     auto past_hash = get_block_hash(past_height);
     auto past_header = parse_json(get_block_header(past_hash));
-    int past_time = past_header["mediantime"].as_int64();
+    int32_t past_time = past_header["mediantime"].as_int64();
 
     // Sum difficulty for all blocks in range
     double total_diff = 0.0;
+    auto header = past_header;
     for (int i = past_height; i <= current_height; ++i) {
-        auto hash = get_block_hash(i);
-        auto header = parse_json(get_block_header(hash));
+        // Get difficulty
+        double difficulty = to_double(header["difficulty"]);
+        total_diff += difficulty;
 
-        // Extract bits (compact difficulty representation) from block header
-        std::string bits_str = header["bits"].as_string().c_str();
-        uint32_t bits = std::stoul(bits_str, nullptr, 16);
-
-        // Convert bits to difficulty using precise 256-bit arithmetic
-        total_diff += bits_to_difficulty(bits);
+        // Get next header
+        if (auto* val = header.if_contains("nextblockhash")) {
+            auto hash = val->as_string().c_str();
+            header = parse_json(get_block_header(hash));
+        } else
+            break;
     }
 
     int time_delta = head_time - past_time;
