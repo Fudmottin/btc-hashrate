@@ -166,6 +166,7 @@ int main(int argc, char** argv) {
               << "Blocks: " << block_delta << "\n"
               << "Expected Time: " << format_duration(static_cast<int>(days * 86400)) << "\n"
               << "Actual Time:   " << format_duration(time_delta) << "\n"
+              << "Averge Block Time: " << avg_block_time / 60.0 << "m\n"
               << "Average Difficulty: " << format_number(avg_diff) << "\n"
               << "Estimated Hashrate: " << format_hashrate(hash_rate) << "\n";
 
