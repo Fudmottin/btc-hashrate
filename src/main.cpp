@@ -102,6 +102,39 @@ double to_double(const json::value& val) {
     }
 }
 
+double median_time(const std::vector<int32_t>& intervals) {
+    if (intervals.empty())
+        return 0.0;
+
+    std::vector<int32_t> sorted = intervals; // copy to avoid mutating input
+    std::ranges::sort(sorted);
+
+    size_t n = sorted.size();
+    if (n % 2 == 0)
+        return (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0;
+    else
+        return sorted[n / 2];
+}
+
+// Computes the sample standard deviation (with Bessel's correction).
+double sample_standard_deviation(const std::vector<int32_t>& values) {
+    const size_t n = values.size();
+    if (n < 2)
+        return 0.0; // Standard deviation is undefined for n < 2
+
+    double sum = 0.0;
+    double sum_sq = 0.0;
+
+    for (int32_t x : values) {
+        sum += x;
+        sum_sq += static_cast<double>(x) * x;
+    }
+
+    double mean = sum / n;
+    double variance = (sum_sq - n * mean * mean) / (n - 1); // Bessel's correction
+    return std::sqrt(variance);
+}
+
 int main(int argc, char** argv) {
     double days = 1.0; // Default to 1 day if no argument is provided
 
@@ -135,10 +168,14 @@ int main(int argc, char** argv) {
     auto past_hash = get_block_hash(past_height);
     auto past_header = parse_json(get_block_header(past_hash));
     int32_t past_time = past_header["mediantime"].as_int64();
+    auto current_time = past_time;
 
     // Sum difficulty for all blocks in range
     double total_diff = 0.0;
     auto header = past_header;
+    std::vector<int32_t> header_intervals = {};
+    header_intervals.reserve(current_height - past_height);
+
     for (int i = past_height; i <= current_height; ++i) {
         // Get difficulty
         double difficulty = to_double(header["difficulty"]);
@@ -150,6 +187,10 @@ int main(int argc, char** argv) {
             header = parse_json(get_block_header(hash));
         } else
             break;
+
+        int32_t next_time = header["mediantime"].as_int64();
+        header_intervals.push_back(next_time - current_time);
+        current_time = next_time;
     }
 
     int time_delta = head_time - past_time;
@@ -166,7 +207,10 @@ int main(int argc, char** argv) {
               << "Blocks: " << block_delta << "\n"
               << "Expected Time: " << format_duration(static_cast<int>(days * 86400)) << "\n"
               << "Actual Time:   " << format_duration(time_delta) << "\n"
+              << std::fixed << std::setprecision(2)
               << "Averge Block Time: " << avg_block_time / 60.0 << "m\n"
+              << "Median Block Time: " << median_time(header_intervals) / 60.0 << "m\n"
+              << "Std Dev: " << sample_standard_deviation(header_intervals) / 60.0 << "m\n"
               << "Average Difficulty: " << format_number(avg_diff) << "\n"
               << "Estimated Hashrate: " << format_hashrate(hash_rate) << "\n";
 
