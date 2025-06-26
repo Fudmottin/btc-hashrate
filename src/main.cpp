@@ -176,7 +176,7 @@ int main(int argc, char** argv) {
     std::vector<int32_t> header_intervals = {};
     header_intervals.reserve(current_height - past_height);
 
-    for (int i = past_height; i <= current_height; ++i) {
+    for (int i = past_height; i < current_height; ++i) {
         // Get difficulty
         double difficulty = to_double(header["difficulty"]);
         total_diff += difficulty;
@@ -192,6 +192,10 @@ int main(int argc, char** argv) {
         header_intervals.push_back(next_time - current_time);
         current_time = next_time;
     }
+
+    // Add difficulty of last block (at current_height)
+    double last_diff = to_double(header["difficulty"]);
+    total_diff += last_diff;
 
     int time_delta = head_time - past_time;
     int block_delta = offset;
