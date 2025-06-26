@@ -44,9 +44,12 @@ make
 Days: 3.5
 Blocks: 504
 Expected Time: 3d:12h:0m:0s
-Actual Time:   3d:11h:58m:12s
-Average Difficulty: 85,923,472,934,108.1
-Estimated Hashrate: 614.5 EH/s
+Actual Time:   4d:1h:49m:26s
+Averge Block Time: 11.65m
+Median Block Time: 8.26m
+Std Dev: 11.39m
+Average Difficulty: 126,411,437,451,912.0
+Estimated Hashrate: 777.0 EH/s
 ```
 
 ## License
