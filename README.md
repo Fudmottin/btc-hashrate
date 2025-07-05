@@ -42,14 +42,16 @@ make
 
 ```
 Days: 3.5
+Block Height: 904143
 Blocks: 504
+Next Diff Adjustment In: 1040 Blocks
 Expected Time: 3d:12h:0m:0s
-Actual Time:   4d:1h:49m:26s
-Averge Block Time: 11.65m
-Median Block Time: 8.26m
-Std Dev: 11.39m
-Average Difficulty: 126,411,437,451,912.0
-Estimated Hashrate: 777.0 EH/s
+Actual Time:   3d:4h:30m:2s
+Averge Block Time: 9.11m
+Median Block Time: 5.67m
+Std Dev: 9.50m
+Average Difficulty: 116,958,512,019,761.8
+Estimated Hashrate: 919.3 EH/s
 ```
 
 ## License
