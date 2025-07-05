@@ -135,6 +135,12 @@ double sample_standard_deviation(const std::vector<int32_t>& values) {
     return std::sqrt(variance);
 }
 
+int next_adjustment(int current_block_height) {
+    constexpr int adjustment_interval = 2016;
+    int blocks_into_epoch = (current_block_height + 1) % adjustment_interval;
+    return adjustment_interval - blocks_into_epoch;
+}
+
 int main(int argc, char** argv) {
     double days = 1.0; // Default to 1 day if no argument is provided
 
@@ -204,7 +210,9 @@ int main(int argc, char** argv) {
 
     // Output results
     std::cout << "Days: " << days << "\n"
+              << "Block Height: " << current_height << "\n"
               << "Blocks: " << block_delta << "\n"
+              << "Next Diff Adjustment In: " << next_adjustment(current_height) << " Blocks\n"
               << "Expected Time: " << format_duration(static_cast<int>(days * 86400)) << "\n"
               << "Actual Time:   " << format_duration(time_delta) << "\n"
               << std::fixed << std::setprecision(2)
