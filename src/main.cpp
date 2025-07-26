@@ -137,7 +137,7 @@ double sample_standard_deviation(const std::vector<int32_t>& values) {
 
 int next_adjustment(int current_block_height) {
     constexpr int adjustment_interval = 2016;
-    int blocks_into_epoch = (current_block_height + 1) % adjustment_interval;
+    int blocks_into_epoch = current_block_height % adjustment_interval;
     return adjustment_interval - blocks_into_epoch;
 }
 
