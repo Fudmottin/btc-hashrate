@@ -165,15 +165,15 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Get current block header and extract mediantime
+    // Get current block header and extract time
     auto head_hash = get_block_hash(current_height);
     auto head_header = parse_json(get_block_header(head_hash));
-    int32_t head_time = head_header["mediantime"].as_int64();
+    int32_t head_time = head_header["time"].as_int64();
 
-    // Get past block header and extract mediantime
+    // Get past block header and extract time
     auto past_hash = get_block_hash(past_height);
     auto past_header = parse_json(get_block_header(past_hash));
-    int32_t past_time = past_header["mediantime"].as_int64();
+    int32_t past_time = past_header["time"].as_int64();
     auto current_time = past_time;
 
     // Sum difficulty for all blocks in range
@@ -194,7 +194,7 @@ int main(int argc, char** argv) {
         } else
             break;
 
-        int32_t next_time = header["mediantime"].as_int64();
+        int32_t next_time = header["time"].as_int64();
         header_intervals.push_back(next_time - current_time);
         current_time = next_time;
     }
