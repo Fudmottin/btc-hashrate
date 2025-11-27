@@ -10,9 +10,15 @@
 #include <chrono>
 #include <cstdio>
 #include <iomanip>
+#include <charconv>
+#include <cstdint>
+#include <string_view>
+#include <stdexcept>
 #include <boost/json.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 
 namespace json = boost::json;
+using namespace boost::multiprecision;
 
 constexpr int blocks_per_day = 144;     // Average number of blocks mined per day on Bitcoin
 
@@ -68,7 +74,7 @@ std::string format_duration(int seconds) {
 }
 
 // Formats large numbers with commas
-std::string format_number(double value) {
+std::string format_number(long double value) {
     std::ostringstream oss;
     oss.imbue(std::locale(""));
     oss << std::fixed << std::setprecision(1) << value;
@@ -141,6 +147,30 @@ int next_adjustment(int current_block_height) {
     return adjustment_interval - blocks_into_epoch;
 }
 
+uint32_t parse_bits(std::string_view hex) {
+    uint32_t value{};
+    auto [ptr, ec] = std::from_chars(hex.data(), hex.data() + hex.size(), value, 16);
+
+    if (ec != std::errc{} || ptr != hex.data() + hex.size())
+        throw std::runtime_error("Invalid bits field");
+
+    return value;
+}
+
+// Function to expand compact target format to uint256_t
+uint256_t expand_compact_target(uint32_t compact) {
+    uint32_t exponent = (compact >> 24) & 0xff;
+    uint32_t coefficient = compact & 0x007fffff;
+
+    uint256_t target;
+    if (exponent <= 3) {
+        target = coefficient >> (8 * (3 - exponent));
+    } else {
+        target = uint256_t(coefficient) * (uint256_t(1) << (8 * (exponent - 3)));
+    }
+    return target;
+}
+
 int main(int argc, char** argv) {
     double days = 1.0; // Default to 1 day if no argument is provided
 
@@ -177,15 +207,16 @@ int main(int argc, char** argv) {
     auto current_time = past_time;
 
     // Sum difficulty for all blocks in range
-    double total_diff = 0.0;
+    uint256_t total_target {0};
     auto header = past_header;
-    std::vector<int32_t> header_intervals = {};
+    std::vector<int32_t> header_intervals {};
     header_intervals.reserve(current_height - past_height + 1);
 
     for (int i = past_height; i <= current_height; ++i) {
-        // Get difficulty
-        double difficulty = to_double(header["difficulty"]);
-        total_diff += difficulty;
+        // Get bits
+        auto* bits_str = header.if_contains("bits");
+        uint32_t bits = parse_bits(bits_str->as_string().c_str());
+        total_target += expand_compact_target(bits);
 
         // Get next header
         if (auto* val = header.if_contains("nextblockhash")) {
@@ -201,7 +232,11 @@ int main(int argc, char** argv) {
 
     int time_delta = head_time - past_time;
     int block_delta = offset;
-    double avg_diff = total_diff / (current_height - past_height + 1);
+    uint256_t avg_target = total_target / (current_height - past_height + 1);
+    // difficulty is simply the inverse of the expanded target
+    long double avg_diff =
+        static_cast<long double>(expand_compact_target(0x1d00ffff).convert_to<long double>()) /
+        static_cast<long double>(avg_target.convert_to<long double>());
 
     // Calculate estimated hash rate using average difficulty
     // Formula: hashrate = avg_difficulty * 2^32 / average_block_time
