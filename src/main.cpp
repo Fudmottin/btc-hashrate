@@ -12,6 +12,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <locale>
 #include <map>
 #include <optional>
 #include <ranges>
@@ -19,6 +20,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace json = boost::json;
@@ -52,13 +54,6 @@ struct OnlineStats {
    }
 };
 
-struct BlockHeaderSample {
-   int height{};
-   std::int64_t time{};
-   std::string hash;
-   std::string bits;
-};
-
 struct BlockSelection {
    int first_height{};
    int last_height{};
@@ -66,6 +61,14 @@ struct BlockSelection {
    [[nodiscard]] int block_count() const {
       return last_height - first_height + 1;
    }
+};
+
+struct BlockSample {
+   int height{};
+   std::int64_t time{};
+   std::string hash;
+   std::string bits;
+   std::string miner;
 };
 
 std::string trim_ascii_whitespace(std::string s) {
@@ -135,12 +138,6 @@ std::string get_block_hash(int height) {
    std::ostringstream cmd;
    cmd << "bitcoin-cli getblockhash " << height;
    return trim_ascii_whitespace(run_command(cmd.str()));
-}
-
-json::object get_block_header(const std::string& hash) {
-   std::ostringstream cmd;
-   cmd << "bitcoin-cli getblockheader " << hash;
-   return parse_json_object(run_command(cmd.str()));
 }
 
 json::object get_block(const std::string& hash) {
@@ -240,6 +237,75 @@ uint256_t expand_compact_target(std::uint32_t compact) {
       target = uint256_t(coefficient) * (uint256_t(1) << (8 * (exponent - 3)));
    }
    return target;
+}
+
+int parse_positive_int(std::string_view text, const char* what) {
+   if (text.empty()) {
+      throw std::runtime_error(std::string("Missing ") + what);
+   }
+
+   int value{};
+   const auto [ptr, ec] =
+      std::from_chars(text.data(), text.data() + text.size(), value);
+
+   if (ec != std::errc{} || ptr != text.data() + text.size() || value <= 0) {
+      throw std::runtime_error(std::string("Invalid ") + what +
+                               ": expected a positive integer");
+   }
+
+   return value;
+}
+
+BlockSelection parse_selection_arg(const char* arg_cstr, int tip_height) {
+   const std::string_view arg{arg_cstr};
+
+   if (const std::size_t dash = arg.find('-'); dash != std::string_view::npos) {
+      if (arg.find('-', dash + 1) != std::string_view::npos) {
+         throw std::runtime_error("Invalid range: too many '-' characters");
+      }
+
+      const int first_height =
+         parse_positive_int(arg.substr(0, dash), "range start");
+      const int last_height =
+         parse_positive_int(arg.substr(dash + 1), "range end");
+
+      if (first_height > last_height) {
+         throw std::runtime_error("Invalid range: start must be <= end");
+      }
+      if (last_height > tip_height) {
+         throw std::runtime_error("Invalid range: end exceeds current tip");
+      }
+
+      return BlockSelection{
+         .first_height = first_height,
+         .last_height = last_height,
+      };
+   }
+
+   const int count = parse_positive_int(arg, "block count");
+   if (count > tip_height + 1) {
+      throw std::runtime_error("Requested history exceeds blockchain height");
+   }
+
+   return BlockSelection{
+      .first_height = tip_height - count + 1,
+      .last_height = tip_height,
+   };
+}
+
+BlockSelection parse_block_selection(int argc, char** argv, int tip_height) {
+   if (argc == 1) {
+      return BlockSelection{
+         .first_height = tip_height - kDefaultBlocks + 1,
+         .last_height = tip_height,
+      };
+   }
+
+   if (argc != 2) {
+      throw std::runtime_error("Usage: btc-hashrate [blocks|start-end]");
+   }
+
+   return parse_selection_arg(argv[1], tip_height);
 }
 
 std::string hex_to_ascii_printable(std::string_view hex) {
@@ -345,127 +411,60 @@ std::string classify_miner_from_coinbase(const std::string& coinbase_hex) {
    return "Unknown";
 }
 
-std::map<std::string, int>
-collect_miner_counts(const std::vector<BlockHeaderSample>& blocks) {
-   std::map<std::string, int> counts;
+BlockSample make_block_sample(const json::object& block) {
+   auto* hash = block.if_contains("hash");
+   auto* height = block.if_contains("height");
+   auto* time = block.if_contains("time");
+   auto* bits = block.if_contains("bits");
 
-   for (const BlockHeaderSample& block : blocks) {
-      const json::object full_block = get_block(block.hash);
-      const std::string coinbase_hex = extract_coinbase_hex(full_block);
-      const std::string miner = classify_miner_from_coinbase(coinbase_hex);
-      ++counts[miner];
+   if (!hash || !hash->is_string() || !height || !height->is_int64() || !time ||
+       !time->is_int64() || !bits || !bits->is_string()) {
+      throw std::runtime_error("Block JSON missing required fields");
    }
 
-   return counts;
+   const std::string coinbase_hex = extract_coinbase_hex(block);
+
+   return BlockSample{
+      .height = static_cast<int>(height->as_int64()),
+      .time = time->as_int64(),
+      .hash = std::string(hash->as_string().c_str()),
+      .bits = std::string(bits->as_string().c_str()),
+      .miner = classify_miner_from_coinbase(coinbase_hex),
+   };
+}
+
+std::vector<BlockSample> load_blocks(const BlockSelection& selection) {
+   std::vector<BlockSample> samples;
+   samples.reserve(static_cast<std::size_t>(selection.block_count()));
+
+   std::string hash = get_block_hash(selection.last_height);
+
+   for (int height = selection.last_height; height >= selection.first_height;
+        --height) {
+      const json::object block = get_block(hash);
+      samples.push_back(make_block_sample(block));
+
+      if (height == selection.first_height) {
+         break;
+      }
+
+      auto* prev = block.if_contains("previousblockhash");
+      if (!prev || !prev->is_string()) {
+         throw std::runtime_error("Encountered block without previousblockhash "
+                                  "before range completed");
+      }
+
+      hash = std::string(prev->as_string().c_str());
+   }
+
+   std::ranges::reverse(samples);
+   return samples;
 }
 
 std::string format_percent(double pct) {
    std::ostringstream oss;
    oss << std::fixed << std::setw(6) << std::setprecision(1) << pct << "%";
    return oss.str();
-}
-
-int parse_positive_int(std::string_view text, const char* what) {
-   if (text.empty()) {
-      throw std::runtime_error(std::string("Missing ") + what);
-   }
-
-   int value{};
-   const auto [ptr, ec] =
-      std::from_chars(text.data(), text.data() + text.size(), value);
-
-   if (ec != std::errc{} || ptr != text.data() + text.size() || value <= 0) {
-      throw std::runtime_error(std::string("Invalid ") + what +
-                               ": expected a positive integer");
-   }
-
-   return value;
-}
-
-BlockSelection parse_selection_arg(const char* arg_cstr, int tip_height) {
-   const std::string_view arg{arg_cstr};
-
-   if (const std::size_t dash = arg.find('-'); dash != std::string_view::npos) {
-      if (arg.find('-', dash + 1) != std::string_view::npos) {
-         throw std::runtime_error("Invalid range: too many '-' characters");
-      }
-
-      const int first_height =
-         parse_positive_int(arg.substr(0, dash), "range start");
-      const int last_height =
-         parse_positive_int(arg.substr(dash + 1), "range end");
-
-      if (first_height > last_height) {
-         throw std::runtime_error("Invalid range: start must be <= end");
-      }
-      if (last_height > tip_height) {
-         throw std::runtime_error("Invalid range: end exceeds current tip");
-      }
-
-      return BlockSelection{
-         .first_height = first_height,
-         .last_height = last_height,
-      };
-   }
-
-   const int count = parse_positive_int(arg, "block count");
-   if (count > tip_height + 1) {
-      throw std::runtime_error("Requested history exceeds blockchain height");
-   }
-
-   return BlockSelection{
-      .first_height = tip_height - count + 1,
-      .last_height = tip_height,
-   };
-}
-
-BlockSelection parse_block_selection(int argc, char** argv, int tip_height) {
-   if (argc == 1) {
-      return BlockSelection{
-         .first_height = tip_height - kDefaultBlocks + 1,
-         .last_height = tip_height,
-      };
-   }
-
-   if (argc != 2) {
-      throw std::runtime_error("Usage: btc-hashrate [blocks|start-end]");
-   }
-
-   return parse_selection_arg(argv[1], tip_height);
-}
-
-BlockHeaderSample make_block_header_sample(const json::object& header) {
-   auto* hash = header.if_contains("hash");
-   auto* height = header.if_contains("height");
-   auto* time = header.if_contains("time");
-   auto* bits = header.if_contains("bits");
-
-   if (!hash || !hash->is_string() || !height || !height->is_int64() || !time ||
-       !time->is_int64() || !bits || !bits->is_string()) {
-      throw std::runtime_error("Block header JSON missing required fields");
-   }
-
-   return BlockHeaderSample{
-      .height = static_cast<int>(height->as_int64()),
-      .time = time->as_int64(),
-      .hash = std::string(hash->as_string().c_str()),
-      .bits = std::string(bits->as_string().c_str()),
-   };
-}
-
-std::vector<BlockHeaderSample>
-load_block_headers(const BlockSelection& selection) {
-   std::vector<BlockHeaderSample> samples;
-   samples.reserve(static_cast<std::size_t>(selection.block_count()));
-
-   for (int height = selection.first_height; height <= selection.last_height;
-        ++height) {
-      const std::string hash = get_block_hash(height);
-      const json::object header = get_block_header(hash);
-      samples.push_back(make_block_header_sample(header));
-   }
-
-   return samples;
 }
 
 } // namespace
@@ -475,24 +474,22 @@ int main(int argc, char** argv) {
       const int tip_height = get_tip_height();
       const BlockSelection selection =
          parse_block_selection(argc, argv, tip_height);
-      const std::vector<BlockHeaderSample> blocks =
-         load_block_headers(selection);
+      const std::vector<BlockSample> blocks = load_blocks(selection);
 
       if (blocks.empty()) {
          throw std::runtime_error("No blocks loaded");
       }
-
-      const std::map<std::string, int> miner_counts =
-         collect_miner_counts(blocks);
 
       uint256_t total_target{0};
       std::vector<std::int32_t> header_intervals;
       header_intervals.reserve(blocks.size() > 0 ? blocks.size() - 1 : 0);
 
       OnlineStats interval_stats;
+      std::map<std::string, int> miner_counts;
 
-      for (const BlockHeaderSample& block : blocks) {
+      for (const BlockSample& block : blocks) {
          total_target += expand_compact_target(parse_bits(block.bits));
+         ++miner_counts[block.miner];
       }
 
       for (std::size_t i = 1; i < blocks.size(); ++i) {
@@ -577,4 +574,3 @@ int main(int argc, char** argv) {
       return 1;
    }
 }
-
