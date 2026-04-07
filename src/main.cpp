@@ -71,6 +71,43 @@ struct BlockSample {
    std::string miner;
 };
 
+struct MinerAlias {
+   std::string_view display_name;
+   std::string_view needle;
+};
+
+constexpr MinerAlias kMinerAliases[] = {
+   {"Foundry USA Pool", "foundry"},
+   {"Foundry USA Pool", "foundryusa"},
+   {"AntPool", "antpool"},
+   {"ViaBTC", "viabtc"},
+   {"F2Pool", "f2pool"},
+   {"F2Pool", "discus fish"},
+   {"Luxor", "luxor"},
+   {"Braiins Pool", "braiins"},
+   {"Braiins Pool", "slush"},
+   {"Braiins Pool", "slushpool"},
+   {"MARA Pool", "mara"},
+   {"MARA Pool", "marapool"},
+   {"Binance Pool", "binance"},
+   {"SBI Crypto", "sbicrypto"},
+   {"SBI Crypto", "sbi crypto"},
+   {"BTC.com", "btc.com"},
+   {"Poolin", "poolin"},
+   {"SpiderPool", "spiderpool"},
+   {"EMCD", "emcd"},
+   {"SECPOOL", "secpool"},
+   {"CloverPool", "cloverpool"},
+   {"Ultimus", "ultimus"},
+   {"Titan", "titan"},
+   {"Ocean", "ocean"},
+   {"CKPool", "ckpool"},
+   {"DMND", "dmnd"},
+   {"Terra Pool", "terra pool"},
+   {"Terra Pool", "terrapool"},
+   {"mempool", "/mempool/"},
+};
+
 std::string trim_ascii_whitespace(std::string s) {
    auto is_space = [](unsigned char ch) {
       switch (ch) {
@@ -384,41 +421,9 @@ std::string classify_miner_from_coinbase(const std::string& coinbase_hex) {
    const std::string ascii =
       to_lower_ascii(hex_to_ascii_printable(coinbase_hex));
 
-   static constexpr std::pair<std::string_view, std::string_view> tags[] = {
-      {"Foundry USA Pool", "foundry"},
-      {"Foundry USA Pool", "foundryusa"},
-      {"AntPool", "antpool"},
-      {"ViaBTC", "viabtc"},
-      {"F2Pool", "f2pool"},
-      {"F2Pool", "discus fish"},
-      {"Luxor", "luxor"},
-      {"Braiins Pool", "braiins"},
-      {"Braiins Pool", "slush"},
-      {"Braiins Pool", "slushpool"},
-      {"MARA Pool", "mara"},
-      {"MARA Pool", "marapool"},
-      {"Binance Pool", "binance"},
-      {"SBI Crypto", "sbicrypto"},
-      {"SBI Crypto", "sbi crypto"},
-      {"BTC.com", "btc.com"},
-      {"Poolin", "poolin"},
-      {"SpiderPool", "spiderpool"},
-      {"EMCD", "emcd"},
-      {"SECPOOL", "secpool"},
-      {"CloverPool", "cloverpool"},
-      {"Ultimus", "ultimus"},
-      {"Titan", "titan"},
-      {"Ocean", "ocean"},
-      {"CKPool", "ckpool"},
-      {"DMND", "dmnd"},
-      {"Terra Pool", "terra pool"},
-      {"Terra Pool", "terrapool"},
-      {"mempool", "/mempool/"},
-   };
-
-   for (const auto& [display_name, needle] : tags) {
-      if (ascii.find(needle) != std::string::npos) {
-         return std::string(display_name);
+   for (const auto& alias : kMinerAliases) {
+      if (ascii.find(alias.needle) != std::string::npos) {
+         return std::string(alias.display_name);
       }
    }
 
