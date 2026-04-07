@@ -1,8 +1,9 @@
-// main.cpp
+// src/main.cpp
 
-#include <array>
 #include <boost/json.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
+
+#include <array>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -21,7 +22,7 @@ namespace json = boost::json;
 using namespace boost::multiprecision;
 
 constexpr int blocks_per_day =
-    144; // Average number of blocks mined per day on Bitcoin
+   144; // Average number of blocks mined per day on Bitcoin
 
 // Runs a shell command and captures its output
 std::string run_command(const std::string& cmd) {
@@ -138,7 +139,7 @@ double sample_standard_deviation(const std::vector<int32_t>& values) {
 
    double mean = sum / n;
    double variance =
-       (sum_sq - n * mean * mean) / (n - 1); // Bessel's correction
+      (sum_sq - n * mean * mean) / (n - 1); // Bessel's correction
    return std::sqrt(variance);
 }
 
@@ -151,7 +152,7 @@ int next_adjustment(int current_block_height) {
 uint32_t parse_bits(std::string_view hex) {
    uint32_t value{};
    auto [ptr, ec] =
-       std::from_chars(hex.data(), hex.data() + hex.size(), value, 16);
+      std::from_chars(hex.data(), hex.data() + hex.size(), value, 16);
 
    if (ec != std::errc{} || ptr != hex.data() + hex.size())
       throw std::runtime_error("Invalid bits field");
@@ -238,9 +239,9 @@ int main(int argc, char** argv) {
    uint256_t avg_target = total_target / (current_height - past_height + 1);
    // difficulty is simply the inverse of the expanded target
    long double avg_diff =
-       static_cast<long double>(
-           expand_compact_target(0x1d00ffff).convert_to<long double>()) /
-       static_cast<long double>(avg_target.convert_to<long double>());
+      static_cast<long double>(
+         expand_compact_target(0x1d00ffff).convert_to<long double>()) /
+      static_cast<long double>(avg_target.convert_to<long double>());
 
    // Calculate estimated hash rate using average difficulty
    // Formula: hashrate = avg_difficulty * 2^32 / average_block_time
