@@ -142,7 +142,13 @@ std::string get_block_hash(int height) {
 
 json::object get_block(const std::string& hash) {
    std::ostringstream cmd;
-   cmd << "bitcoin-cli getblock " << hash << " 2";
+   cmd << "bitcoin-cli getblock " << hash << " 1";
+   return parse_json_object(run_command(cmd.str()));
+}
+
+json::object get_raw_transaction(const std::string& txid) {
+   std::ostringstream cmd;
+   cmd << "bitcoin-cli getrawtransaction " << txid << " true";
    return parse_json_object(run_command(cmd.str()));
 }
 
@@ -345,14 +351,22 @@ std::string to_lower_ascii(std::string s) {
    return s;
 }
 
-std::string extract_coinbase_hex(const json::object& block) {
+std::string extract_coinbase_txid(const json::object& block) {
    auto* tx = block.if_contains("tx");
    if (!tx || !tx->is_array() || tx->as_array().empty()) {
       throw std::runtime_error("Block JSON missing tx array");
    }
 
-   auto& coinbase_tx = tx->as_array().front().as_object();
-   auto* vin = coinbase_tx.if_contains("vin");
+   const auto& first = tx->as_array().front();
+   if (!first.is_string()) {
+      throw std::runtime_error("Expected verbosity-1 tx array of txids");
+   }
+
+   return std::string(first.as_string().c_str());
+}
+
+std::string extract_coinbase_hex(const json::object& tx) {
+   auto* vin = tx.if_contains("vin");
    if (!vin || !vin->is_array() || vin->as_array().empty()) {
       throw std::runtime_error("Coinbase transaction missing vin array");
    }
@@ -422,7 +436,9 @@ BlockSample make_block_sample(const json::object& block) {
       throw std::runtime_error("Block JSON missing required fields");
    }
 
-   const std::string coinbase_hex = extract_coinbase_hex(block);
+   const std::string coinbase_txid = extract_coinbase_txid(block);
+   const json::object coinbase_tx = get_raw_transaction(coinbase_txid);
+   const std::string coinbase_hex = extract_coinbase_hex(coinbase_tx);
 
    return BlockSample{
       .height = static_cast<int>(height->as_int64()),
