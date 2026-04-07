@@ -12,6 +12,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <optional>
 #include <ranges>
 #include <sstream>
@@ -142,6 +143,12 @@ json::object get_block_header(const std::string& hash) {
    return parse_json_object(run_command(cmd.str()));
 }
 
+json::object get_block(const std::string& hash) {
+   std::ostringstream cmd;
+   cmd << "bitcoin-cli getblock " << hash << " 2";
+   return parse_json_object(run_command(cmd.str()));
+}
+
 std::string format_duration(std::int64_t seconds) {
    if (seconds < 0) seconds = 0;
 
@@ -233,6 +240,129 @@ uint256_t expand_compact_target(std::uint32_t compact) {
       target = uint256_t(coefficient) * (uint256_t(1) << (8 * (exponent - 3)));
    }
    return target;
+}
+
+std::string hex_to_ascii_printable(std::string_view hex) {
+   auto hex_value = [](char c) -> int {
+      if (c >= '0' && c <= '9') return c - '0';
+      if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+      if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+      return -1;
+   };
+
+   std::string out;
+   out.reserve(hex.size() / 2);
+
+   for (std::size_t i = 0; i + 1 < hex.size(); i += 2) {
+      const int hi = hex_value(hex[i]);
+      const int lo = hex_value(hex[i + 1]);
+      if (hi < 0 || lo < 0) continue;
+
+      const unsigned char byte = static_cast<unsigned char>((hi << 4) | lo);
+
+      if (byte >= 32 && byte <= 126) {
+         out.push_back(static_cast<char>(byte));
+      } else {
+         out.push_back(' ');
+      }
+   }
+
+   return out;
+}
+
+std::string to_lower_ascii(std::string s) {
+   for (char& ch : s) {
+      if (ch >= 'A' && ch <= 'Z') {
+         ch = static_cast<char>(ch - 'A' + 'a');
+      }
+   }
+   return s;
+}
+
+std::string extract_coinbase_hex(const json::object& block) {
+   auto* tx = block.if_contains("tx");
+   if (!tx || !tx->is_array() || tx->as_array().empty()) {
+      throw std::runtime_error("Block JSON missing tx array");
+   }
+
+   auto& coinbase_tx = tx->as_array().front().as_object();
+   auto* vin = coinbase_tx.if_contains("vin");
+   if (!vin || !vin->is_array() || vin->as_array().empty()) {
+      throw std::runtime_error("Coinbase transaction missing vin array");
+   }
+
+   auto& vin0 = vin->as_array().front().as_object();
+   auto* coinbase = vin0.if_contains("coinbase");
+   if (!coinbase || !coinbase->is_string()) {
+      throw std::runtime_error("Coinbase input missing coinbase scriptSig");
+   }
+
+   return std::string(coinbase->as_string().c_str());
+}
+
+std::string classify_miner_from_coinbase(const std::string& coinbase_hex) {
+   const std::string ascii =
+      to_lower_ascii(hex_to_ascii_printable(coinbase_hex));
+
+   static constexpr std::pair<std::string_view, std::string_view> tags[] = {
+      {"Foundry USA Pool", "foundry"},
+      {"Foundry USA Pool", "foundryusa"},
+      {"AntPool", "antpool"},
+      {"ViaBTC", "viabtc"},
+      {"F2Pool", "f2pool"},
+      {"F2Pool", "discus fish"},
+      {"Luxor", "luxor"},
+      {"Braiins Pool", "braiins"},
+      {"Braiins Pool", "slush"},
+      {"Braiins Pool", "slushpool"},
+      {"MARA Pool", "mara"},
+      {"MARA Pool", "marapool"},
+      {"Binance Pool", "binance"},
+      {"SBI Crypto", "sbicrypto"},
+      {"SBI Crypto", "sbi crypto"},
+      {"BTC.com", "btc.com"},
+      {"Poolin", "poolin"},
+      {"SpiderPool", "spiderpool"},
+      {"EMCD", "emcd"},
+      {"SECPOOL", "secpool"},
+      {"CloverPool", "cloverpool"},
+      {"Ultimus", "ultimus"},
+      {"Titan", "titan"},
+      {"Ocean", "ocean"},
+      {"CKPool", "ckpool"},
+      {"DMND", "dmnd"},
+      {"Terra Pool", "terra pool"},
+      {"Terra Pool", "terrapool"},
+      {"mempool", "/mempool/"},
+   };
+
+   for (const auto& [display_name, needle] : tags) {
+      if (ascii.find(needle) != std::string::npos) {
+         return std::string(display_name);
+      }
+   }
+
+   return "Unknown";
+}
+
+std::map<std::string, int>
+collect_miner_counts(const std::vector<BlockHeaderSample>& blocks) {
+   std::map<std::string, int> counts;
+
+   for (const BlockHeaderSample& block : blocks) {
+      const json::object full_block = get_block(block.hash);
+      const std::string coinbase_hex = extract_coinbase_hex(full_block);
+      const std::string miner = classify_miner_from_coinbase(coinbase_hex);
+      ++counts[miner];
+   }
+
+   return counts;
+}
+
+std::string format_percent(double pct) {
+   std::ostringstream oss;
+   oss << std::fixed << std::setw(6) << std::setprecision(1) << pct << "%";
+   return oss.str();
 }
 
 int parse_positive_int(std::string_view text, const char* what) {
@@ -352,6 +482,9 @@ int main(int argc, char** argv) {
          throw std::runtime_error("No blocks loaded");
       }
 
+      const std::map<std::string, int> miner_counts =
+         collect_miner_counts(blocks);
+
       uint256_t total_target{0};
       std::vector<std::int32_t> header_intervals;
       header_intervals.reserve(blocks.size() > 0 ? blocks.size() - 1 : 0);
@@ -418,6 +551,24 @@ int main(int argc, char** argv) {
                    << "\n";
       } else {
          std::cout << "Estimated Hashrate: n/a\n";
+      }
+
+      std::vector<std::pair<std::string, int>> miner_rows(miner_counts.begin(),
+                                                          miner_counts.end());
+
+      std::ranges::sort(miner_rows, [](const auto& lhs, const auto& rhs) {
+         if (lhs.second != rhs.second) return lhs.second > rhs.second;
+         return lhs.first < rhs.first;
+      });
+
+      std::cout << "\nMiners / Pools\n";
+      for (const auto& [miner, count] : miner_rows) {
+         const double pct = (100.0 * static_cast<double>(count)) /
+                            static_cast<double>(sampled_blocks);
+
+         std::cout << "  " << std::left << std::setw(24) << miner << std::right
+                   << " -- " << std::setw(5) << count << " -- "
+                   << format_percent(pct) << "\n";
       }
 
       return 0;
