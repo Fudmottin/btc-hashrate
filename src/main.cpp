@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <iomanip>
 #include <iostream>
 #include <locale>
@@ -204,6 +205,19 @@ std::string format_duration(std::int64_t seconds) {
    if (days > 0 || hours > 0) oss << hours << "h:";
    if (days > 0 || hours > 0 || minutes > 0) oss << minutes << "m:";
    oss << seconds << "s";
+   return oss.str();
+}
+
+std::string format_datetime(std::int64_t unix_time) {
+   const std::time_t t = static_cast<std::time_t>(unix_time);
+   std::tm tm{};
+
+   if (localtime_r(&t, &tm) == nullptr) {
+      throw std::runtime_error("Failed to format datetime");
+   }
+
+   std::ostringstream oss;
+   oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
    return oss.str();
 }
 
@@ -547,6 +561,8 @@ int main(int argc, char** argv) {
 
       std::cout
          << "Block Range: " << first_height << " - " << last_height << "\n"
+         << "Begin Time: " << format_datetime(blocks.front().time) << "\n"
+         << "End Time:   " << format_datetime(blocks.back().time) << "\n"
          << "Sampled Blocks: " << sampled_blocks << "\n"
          << "Sampled Intervals: " << sampled_intervals << "\n"
          << "Next Diff Adjustment In: " << next_adjustment(last_height)
