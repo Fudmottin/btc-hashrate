@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <cstddef>
 #include <ctime>
 #include <iomanip>
 #include <iostream>
@@ -23,6 +24,8 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#include "pool-names.hpp"
 
 namespace json = boost::json;
 using namespace boost::multiprecision;
@@ -70,177 +73,6 @@ struct BlockSample {
    std::string hash;
    std::string bits;
    std::string miner;
-};
-
-struct MinerAlias {
-   std::string_view display_name;
-   std::string_view needle;
-};
-
-constexpr MinerAlias kMinerAliases[] = {
-   {"shawnp0wers", "--nug--"},
-   {"7pool", "mined by 7pool.com"},
-   {"1THash", "1thash&58coin"},
-   {"1THash", "1thash"},
-   {"Foundry USA", "2cdw"},
-   {"Foundry USA", "foundry usa"},
-   {"58COIN", "58coin.com"},
-   {"A-XBT", "a-xbt"},
-   {"AAO Pool", "aaopool"},
-   {"AntPool", "antpool"},
-   {"ArkPool", "arkpool"},
-   {"BATPOOL", "batpool"},
-   {"BCMonster", "bcmonster"},
-   {"BTC.com", "btc.com"},
-   {"BTC.com", "btccom"},
-   {"BTC.TOP", "btc.top"},
-   {"BTCC", "btcc"},
-   {"BTCC", "btcchina"},
-   {"BTPOOL", "btpool"},
-   {"Binance Pool", "binance"},
-   {"Binance Pool", "binance.com/"},
-   {"BitClub", "bitclub network"},
-   {"BitFury", "bitfury"},
-   {"BitcoinIndia", "bitcoin-india"},
-   {"BitcoinRussia", "bitcoin-russia.ru"},
-   {"Bitcoin-Ukraine", "bitcoin-ukraine.com.ua"},
-   {"Bixin", "bixin"},
-   {"Bixin", "haobtc"},
-   {"Lubian.com", "buffett"},
-   {"CanoePool", "canoe"},
-   {"CanoePool", "canoepool"},
-   {"ConnectBTC", "connectbtc - home for miners"},
-   {"DCEX", "dcex"},
-   {"DCExploration", "dcexploitation"},
-   {"DPOOL", "dpool.top"},
-   {"WAYI.CN", "e2m & btc.top"},
-   {"WAYI.CN", "e2m"},
-   {"EMCDPool", "emcd"},
-   {"EMCDPool", "one_more_mcd"},
-   {"EMCDPool", "emcd.io"},
-   {"EMCDPool", "get___emcd"},
-   {"Helix", "helix"},
-   {"HotPool", "hotpool"},
-   {"Huobi Pool", "huobi"},
-   {"Huobi Pool", "huobi"},
-   {"Luxor", "luxor"},
-   {"Luxor", "luxor tech"},
-   {"MARA Pool", "mara pool"},
-   {"MARA Pool", "mara made in usa"},
-   {"MaxiPool", "maxipool"},
-   {"HashBX", "mined by hashbx.io"},
-   {"Minerium", "minerium.com"},
-   {"Mining-Dutch", "mining-dutch"},
-   {"Nexious", "nexious"},
-   {"NiceHash", "nicehash"},
-   {"NiceHash", "nicehashmining"},
-   {"NiceHash", "nicehashsolo"},
-   {"NovaBlock", "novablock"},
-   {"Rawpool", "rawpool.com"},
-   {"RigPool", "rigpool.com"},
-   {"SBI Crypto", "sbicrypto.com pool"},
-   {"SBI Crypto", "sbi crypto"},
-   {"SBI Crypto", "sbicrypto"},
-   {"SecretSuperstar", "secretsuperstar"},
-   {"Sigmapool.com", "sigmapool.com"},
-   {"TMSPool", "tmspool"},
-   {"Tangpool", "tangpool"},
-   {"ViaBTC", "viabtc/tatmas pool"},
-   {"ViaBTC", "viabtc"},
-   {"ViaBTC", "viabtc.com deploy"},
-   {"TATMAS Pool", "tatmas pool"},
-   {"Waterhole", "waterhole.io"},
-   {"digitalBTC", "agentd"},
-   {"Bravo Mining", "bravo-mining"},
-   {"BytePool", "bytepool.com"},
-   {"CKPool", "ckpool.org"},
-   {"CKPool", "ckpool"},
-   {"haominer", "haominer"},
-   {"HAOZHUZHU", "haozhuzhu"},
-   {"OKKONG", "hash.okkong.com"},
-   {"Lubian.com", "lubian.com"},
-   {"GBMiners", "mined by gbminers"},
-   {"Mt Red", "mtred"},
-   {"Pega Pool", "pegapool"},
-   {"PHash.IO", "phash.cn"},
-   {"PHash.IO", "phash.io"},
-   {"21 Inc.", "pool34"},
-   {"Poolin", "poolin.com"},
-   {"Poolin", "poolin"},
-   {"Braiins Pool", "slushpool"},
-   {"Braiins Pool", "slush"},
-   {"Solo CK", "solo.ckpool.org"},
-   {"Ultimus Pool", "ultimus"},
-   {"OKExPool", "www.okex.com"},
-   {"okpool.top", "www.okpool.top"},
-   {"8baochi", "8baochi.com"},
-   {"50BTC", "50btc"},
-   {"ASICMiner", "asicminer"},
-   {"Bitfarms", "bitfarms"},
-   {"Mining Squared", "bsquared network"},
-   {"Mining Squared", "miningsquared"},
-   {"BTC Guild", "btc guild"},
-   {"BTCPool (unidentified)", "btcpool"},
-   {"BWPool", "bw pool"},
-   {"BWPool", "bwpool"},
-   {"BitFuFu", "bitfufu"},
-   {"BitMinter", "bitminter"},
-   {"Bitalo", "bitalo"},
-   {"Bitdeer", "bitdeer"},
-   {"Bitsolo", "bitsolo pool"},
-   {"BlockFills", "blockfillspool"},
-   {"CoinLab", "coinlab"},
-   {"EclipseMC", "emc"},
-   {"Eligius", "eligius"},
-   {"F2Pool", "f2pool"},
-   {"F2Pool", "discus fish"},
-   {"Give Me Coins", "give-me-coins"},
-   {"HASHPOOL", "hashpool"},
-   {"HHTT", "hhtt"},
-   {"Hummerpool", "hummerpool"},
-   {"Innopolis Tech", "innopolis"},
-   {"KanoPool", "kano"},
-   {"KnCMiner", "kncminer"},
-   {"KuCoin Pool", "kucoinpool"},
-   {"MaxBTC", "maxbtc"},
-   {"175btc", "mined by 175btc.com"},
-   {"1Hash", "mined by 1hash.com"},
-   {"1Hash", "1hash.com"},
-   {"MultiCoin.co", "mined by multicoin.co"},
-   {"MiningCity", "miningcity"},
-   {"Ocean.xyz", "ocean.xyz"},
-   {"SecPool", "secpool"},
-   {"SpiderPool", "spiderpool"},
-   {"TBDice", "tbdice"},
-   {"Titan", "titan.io"},
-   {"TogetherPool", "togetherpool"},
-   {"TripleMining", "triplemining.com"},
-   {"TripleMining", "triplemining"},
-   {"UKRPool", "ukrpool.com"},
-   {"CleanIncentive", "validated with clean energy"},
-   {"WhitePool", "whitepool"},
-   {"bcpool.io", "bcpool.io"},
-   {"Bitcoin Affiliate Network", "bitcoinaffiliatenetwork.com"},
-   {"Bitparking", "bitparking"},
-   {"BTCServ", "btcserv"},
-   {"Polmine", "by polmine.pl"},
-   {"Polmine", "bypmneu"},
-   {"Cointerra", "cointerra"},
-   {"MegaBigPower", "megabigpower.com"},
-   {"mmpool", "mmpool"},
-   {"myBTCcoin Pool", "mybtccoin pool"},
-   {"NMCbit", "nmcbit.com"},
-   {"OKMINER", "okminer.com/euz"},
-   {"OzCoin", "ozco.in"},
-   {"OzCoin", "ozcoin"},
-   {"Bitcoin.com", "pool.bitcoin.com"},
-   {"simplecoin.us", "simplecoin"},
-   {"ST Mining Corp", "st mining corp"},
-   {"Terra Pool", "terrapool.io"},
-   {"Tiger Pool", "tigerpool.net"},
-   {"Tiger Pool", "tiger"},
-   {"EXX&BW", "xbtc.exx.com&bw.com"},
-   {"Yourbtc.net", "yourbtc.net"},
 };
 
 std::string trim_ascii_whitespace(std::string s) {
@@ -565,11 +397,55 @@ std::string extract_coinbase_hex(const json::object& tx) {
    return std::string(coinbase->as_string().c_str());
 }
 
-std::string classify_miner_from_coinbase(const std::string& coinbase_hex) {
+std::string extract_coinbase_output_address(const json::object& tx) {
+   auto* vout = tx.if_contains("vout");
+   if (!vout || !vout->is_array() || vout->as_array().empty()) {
+      throw std::runtime_error("Coinbase transaction missing vout array");
+   }
+
+   const auto& vout0 = vout->as_array().front().as_object();
+   auto* script_pub_key = vout0.if_contains("scriptPubKey");
+   if (!script_pub_key || !script_pub_key->is_object()) {
+      throw std::runtime_error("Missing scriptPubKey");
+   }
+
+   auto& spk = script_pub_key->as_object();
+   auto* addresses = spk.if_contains("addresses");
+
+   if (addresses && addresses->is_array() && !addresses->as_array().empty()) {
+      const auto& addr = addresses->as_array().front();
+      if (addr.is_string()) {
+         return std::string(addr.as_string().c_str());
+      }
+   }
+
+   // descriptor-based nodes (modern)
+   auto* address = spk.if_contains("address");
+   if (address && address->is_string()) {
+      return std::string(address->as_string().c_str());
+   }
+
+   return {};
+}
+
+std::string classify_miner_from_coinbase(const std::string& coinbase_hex,
+                                         const std::string& payout_address) {
+   // 1. Prefer payout address
+   if (!payout_address.empty()) {
+      for (std::size_t i = 0; i < kPayoutAddressAliasesCount; ++i) {
+         const auto& alias = kPayoutAddressAliases[i];
+         if (payout_address == alias.address) {
+            return std::string(alias.display_name);
+         }
+      }
+   }
+
+   // 2. Fallback to scriptSig
    const std::string ascii =
       to_lower_ascii(hex_to_ascii_printable(coinbase_hex));
 
-   for (const auto& alias : kMinerAliases) {
+   for (std::size_t i = 0; i < kScriptSigAliasesCount; ++i) {
+      const auto& alias = kScriptSigAliases[i];
       if (ascii.find(alias.needle) != std::string::npos) {
          return std::string(alias.display_name);
       }
@@ -592,13 +468,15 @@ BlockSample make_block_sample(const json::object& block) {
    const std::string coinbase_txid = extract_coinbase_txid(block);
    const json::object coinbase_tx = get_raw_transaction(coinbase_txid);
    const std::string coinbase_hex = extract_coinbase_hex(coinbase_tx);
+   const std::string payout_address =
+      extract_coinbase_output_address(coinbase_tx);
 
    return BlockSample{
       .height = static_cast<int>(height->as_int64()),
       .time = time->as_int64(),
       .hash = std::string(hash->as_string().c_str()),
       .bits = std::string(bits->as_string().c_str()),
-      .miner = classify_miner_from_coinbase(coinbase_hex),
+      .miner = classify_miner_from_coinbase(coinbase_hex, payout_address),
    };
 }
 
@@ -745,3 +623,4 @@ int main(int argc, char** argv) {
       return 1;
    }
 }
+

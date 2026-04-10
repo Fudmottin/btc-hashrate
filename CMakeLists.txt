@@ -8,7 +8,7 @@ endif()
 
 find_package(Boost REQUIRED COMPONENTS json)
 
-add_executable(btc-hashrate src/main.cpp)
+add_executable(btc-hashrate src/pool-names.cpp src/main.cpp)
 target_link_libraries(btc-hashrate PRIVATE Boost::json)
 
 target_compile_features(btc-hashrate PRIVATE cxx_std_20)
