@@ -70,6 +70,7 @@ struct BlockSelection {
 struct BlockSample {
    int height{};
    std::int64_t time{};
+   uint256_t chainwork{};
    std::string hash;
    std::string bits;
    std::string miner;
@@ -244,6 +245,31 @@ std::uint32_t parse_bits(std::string_view hex) {
 
    if (ec != std::errc{} || ptr != hex.data() + hex.size()) {
       throw std::runtime_error("Invalid bits field");
+   }
+
+   return value;
+}
+
+uint256_t parse_uint256_hex(std::string_view hex) {
+   auto hex_value = [](char c) -> int {
+      if (c >= '0' && c <= '9') return c - '0';
+      if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+      if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+      return -1;
+   };
+
+   if (hex.empty()) {
+      throw std::runtime_error("Invalid uint256 hex: empty");
+   }
+
+   uint256_t value{0};
+   for (char c : hex) {
+      const int nibble = hex_value(c);
+      if (nibble < 0) {
+         throw std::runtime_error("Invalid uint256 hex");
+      }
+      value <<= 4;
+      value += static_cast<unsigned>(nibble);
    }
 
    return value;
@@ -459,9 +485,11 @@ BlockSample make_block_sample(const json::object& block) {
    auto* height = block.if_contains("height");
    auto* time = block.if_contains("time");
    auto* bits = block.if_contains("bits");
+   auto* chainwork = block.if_contains("chainwork");
 
    if (!hash || !hash->is_string() || !height || !height->is_int64() || !time ||
-       !time->is_int64() || !bits || !bits->is_string()) {
+       !time->is_int64() || !bits || !bits->is_string() || !chainwork ||
+       !chainwork->is_string()) {
       throw std::runtime_error("Block JSON missing required fields");
    }
 
@@ -474,6 +502,7 @@ BlockSample make_block_sample(const json::object& block) {
    return BlockSample{
       .height = static_cast<int>(height->as_int64()),
       .time = time->as_int64(),
+      .chainwork = parse_uint256_hex(chainwork->as_string().c_str()),
       .hash = std::string(hash->as_string().c_str()),
       .bits = std::string(bits->as_string().c_str()),
       .miner = classify_miner_from_coinbase(coinbase_hex, payout_address),
@@ -561,14 +590,21 @@ int main(int argc, char** argv) {
       std::optional<double> avg_block_time_seconds;
       std::optional<double> median_block_time_seconds;
       std::optional<double> stddev_block_time_seconds;
-      std::optional<double> hash_rate_hps;
+      std::optional<long double> hash_rate_hps;
 
       if (!header_intervals.empty()) {
          avg_block_time_seconds = interval_stats.mean();
          median_block_time_seconds = median_time(header_intervals);
          stddev_block_time_seconds = interval_stats.sample_standard_deviation();
-         hash_rate_hps = static_cast<double>(avg_diff) * std::pow(2.0, 32) /
-                         *avg_block_time_seconds;
+      }
+
+      if (time_delta > 0) {
+         const uint256_t chainwork_delta =
+            blocks.back().chainwork - blocks.front().chainwork;
+
+         hash_rate_hps =
+            chainwork_delta.convert_to<long double>() /
+            static_cast<long double>(time_delta);
       }
 
       std::cout
@@ -593,7 +629,8 @@ int main(int argc, char** argv) {
          << "Average Difficulty: " << format_number(avg_diff) << "\n";
 
       if (hash_rate_hps.has_value()) {
-         std::cout << "Estimated Hashrate: " << format_hashrate(*hash_rate_hps)
+         std::cout << "Estimated Network Hashrate: "
+                   << format_hashrate(static_cast<double>(*hash_rate_hps))
                    << "\n";
       } else {
          std::cout << "Estimated Hashrate: n/a\n";
