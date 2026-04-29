@@ -7,7 +7,6 @@ It uses `bitcoin-cli` to gather block header data and calculates hashrate based 
 ## Features
 
 * Estimates hashrate using actual block header data
-* Supports floating-point input for precise day ranges
 * Displays readable summaries including block count, time intervals, difficulty, and hashrate
 
 ## Requirements
