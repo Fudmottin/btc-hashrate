@@ -1,6 +1,7 @@
 #include "pool-names.hpp"
 
 constexpr MinerAlias kScriptSigAliases[] = {
+   {"Public Pool", "public pool"},
    {"shawnp0wers", "--nug--"},
    {"7pool", "mined by 7pool.com"},
    {"1THash", "1thash&58coin"},
