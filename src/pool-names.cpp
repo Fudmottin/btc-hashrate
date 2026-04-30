@@ -2,6 +2,9 @@
 
 constexpr MinerAlias kScriptSigAliases[] = {
    {"Public Pool", "public pool"},
+   {"Braiins Solo", "braiinssolo"},
+   {"Parasite Pool", "parasite"},
+   {"RedRock Pool", "redrock pool"},
    {"shawnp0wers", "--nug--"},
    {"7pool", "mined by 7pool.com"},
    {"1THash", "1thash&58coin"},

@@ -477,6 +477,8 @@ std::string classify_miner_from_coinbase(const std::string& coinbase_hex,
       }
    }
 
+   std::cerr << "Unknown: " << coinbase_hex << "\n";
+
    return "Unknown";
 }
 
